@@ -32,12 +32,19 @@ const userSchema=mongoose.Schema({
       },
       regDate:{
         type:Date,
-        required:true,
+        default:Date.now,
       },
-      salary;{
+      salary:{
         type:Number,
         required:true,
-      },    
+      },
+      purchasePower:{
+        type:Number,
+      },
+      status:{
+        type:String,
+        default:"Pending",
+      }    
 });
 const User=mongoose.model('User',userSchema);
 module.exports=User;
