@@ -20,7 +20,6 @@ const auth = async (req, res, next) => {
       req.token = token;
       next();
     } catch (err) {
-        console.log("in Catch");
       res.status(500).json({ err});
     }
   };

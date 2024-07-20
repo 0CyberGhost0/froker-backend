@@ -4,6 +4,7 @@ const authRouter=express.Router();
 const User=require('../models/userModel');
 const jwt=require("jsonwebtoken");
 const auth=require("../middlewares/auth");
+const validateUser=require("../utils/validateUser");
 
 
 authRouter.post('/signup',async (req,res)=>{
@@ -27,7 +28,14 @@ authRouter.post('/signup',async (req,res)=>{
             salary,
         });
         await user.save();
-        res.json({msg:"User Created Successfully",user});
+        const validate=validateUser(dob,salary);
+        if(validate.valid==false){
+            user.status='Rejected';
+            return res.status(400).json({msg:validate.msg,user});
+        }
+        user.status='Approved';
+        await user.save();
+        res.json({msg:"User Created Successfully and has been Approved!",user});
     }catch(e){
         res.status(500).json({error:e.message});
     }
@@ -51,8 +59,5 @@ authRouter.post('/login',async(req,res)=>{
         
     }
 });
-authRouter.get("/user", auth, async (req, res) => {
-    const user = await User.findById(req.user);
-    res.json({ ...user._doc, token: req.token });
-});
+
 module.exports=authRouter;
