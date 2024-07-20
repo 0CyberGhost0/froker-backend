@@ -40,11 +40,12 @@ const userSchema=mongoose.Schema({
       },
       purchasePower:{
         type:Number,
+        default:0,
       },
       status:{
         type:String,
         default:"Pending",
-      }    
+      },
 });
 const User=mongoose.model('User',userSchema);
 module.exports=User;
