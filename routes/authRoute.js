@@ -1,34 +1,45 @@
-// Import necessary modules
-const express = require("express"); 
+const express = require("express");
 const bcrypt = require("bcryptjs");
-const authRouter = express.Router(); 
-const User = require('../models/userModel'); 
-const jwt = require("jsonwebtoken"); 
-const auth = require("../middlewares/auth"); 
-const validateUser = require("../utils/validateUser");
+const authRouter = express.Router();
+const User = require('../models/userModel');
+const jwt = require("jsonwebtoken");
+const authMiddleware = require("../middlewares/auth");
+const moment = require("moment"); // Import moment
 
-// Route for user signup
+// Function to calculate age from date of birth using moment
+const calculateAge = (dob) => {
+    return moment().diff(moment(dob), 'years');
+};
+
 authRouter.post('/signup', async (req, res) => {
     try {
-       
         const { name, email, password, phoneNumber, dob, salary } = req.body;
 
-        // Check if email or password are missing
         if (!email || !password) {
-            return res.status(400).json({ msg: "Email or Password can't be empty" });
+            return res.json({ message: "Email or Password can't be empty" });
         }
 
-        // Check if a user with the same email already exists
+        // Check if the user already exists
         const existingUser = await User.findOne({ email });
         if (existingUser) {
-            return res.status(400).json({ msg: "User Already Exists!" });
+            return res.json({ message: "User Already Exists!" });
         }
 
-        // Hash the password using bcrypt
+        // Hash the password
         const salt = await bcrypt.genSalt(10);
         const hashedPassword = await bcrypt.hash(password, salt);
 
-        // Create a new user instance
+        // Validate age and salary
+        const age = calculateAge(dob);
+        if (age <= 20) {
+            return res.json({ message: "Age must be greater than 20" });
+        }
+
+        if (salary < 25000) {
+            return res.json({ message: "Salary must be greater than or equal to 25,000" });
+        }
+
+        // Create and save the new user
         const user = new User({
             name,
             email,
@@ -38,56 +49,80 @@ authRouter.post('/signup', async (req, res) => {
             salary,
         });
 
-        // Save the user to the database
         await user.save();
 
-        // Validate the user's data
-        const validate = validateUser(dob, salary);
-        if (validate.valid == false) {
-            user.status = 'Rejected';
-            return res.status(400).json({ msg: validate.msg, user });
-        }
-
-        // Set the user's status to 'Approved'
-        user.status = 'Approved';
+        // Set user status to approved
+        user.status = true;
         await user.save();
 
-        // Respond with a success message and the user data
-        res.json({ msg: "User Created Successfully and has been Approved!", user });
+        res.json({ message: "User Created Successfully and has been Approved!", user });
     } catch (e) {
-        // Handle errors and respond with status 500
-        res.status(500).json({ error: e.message });
+        res.json({ error: e.message });
     }
 });
 
-// Route for user login
 authRouter.post('/login', async (req, res) => {
     try {
-
         const { email, password } = req.body;
 
-        // Find the user by email
         const user = await User.findOne({ email });
         if (!user) {
-            return res.status(400).json({ msg: "User doesn't Exist" });
+            return res.json({ message: "User doesn't Exist" });
         }
 
-        // Check if the provided password matches the hashed password in the database
         const isMatch = await bcrypt.compare(password, user.password);
         if (!isMatch) {
-            return res.status(400).json({ msg: "Incorrect Password" });
+            return res.json({ message: "Incorrect Password" });
         }
 
-        // Create a JWT token for the user
         const token = jwt.sign({ id: user._id }, "password");
 
-        // Respond with the token and user data
         res.json({ token, ...user._doc });
     } catch (error) {
-        // Handle errors and respond with status 500
-        res.status(500).json({ error: error.message });
+        res.json({ error: error.message });
     }
 });
 
+authRouter.get("/user", authMiddleware, async (req, res) => {
+    try {
+        const user = await User.findById(req.userId);
+        res.json({ ...user._doc, token: req.authToken });
+    } catch (err) {
+        res.json({ error: err.message });
+    }
+});
+
+authRouter.post('/borrow', authMiddleware, async (req, res) => {
+    try {
+        const { amount, tenure } = req.body;
+
+        if (!amount || !tenure) {
+            return res.json({ message: "Enter Amount and tenure to borrow!" });
+        }
+
+        const userId = req.userId;
+        const user = await User.findById(userId);
+        if (user.status === false) {
+            return res.json({ message: "Can't Borrow Money... Application Rejected" });
+        }
+
+        user.purchasePower += amount;
+
+        const a = 0.08 / 12;
+        const b = Math.pow(1 + a, tenure);
+        const num = a * b;
+        const den = b - 1;
+        const monthlyRepayment = amount * (num / den);
+
+        await user.save();
+
+        res.json({
+            purchasePower: user.purchasePower,
+            monthlyRepayment: monthlyRepayment.toFixed(2)
+        });
+    } catch (err) {
+        res.json({ error: err.message });
+    }
+});
 
 module.exports = authRouter;

@@ -1,27 +1,27 @@
-const jwt=require("jsonwebtoken");
-const auth = async (req, res, next) => {
+const jwt = require("jsonwebtoken");
+
+const authMiddleware = async (req, res, next) => {
     try {
+        const authToken = req.header("auth-token");
 
-      const token = req.header("x-auth-token");
-    
-      console.log(token);
+        console.log(authToken);
 
-      if (!token)
-        return res.status(401).json({ msg: "No auth token, access denied" });
+        if (!authToken) {
+            return res.json({ message: "Authentication token is missing, access denied" });
+        }
 
-      const verified = jwt.verify(token, "password");
+        const decodedToken = jwt.verify(authToken, "password");
 
-      if (!verified)
-        return res
-          .status(401)
-          .json({ msg: "Token verification failed, authorization denied." });
-  
-      req.user = verified.id;
-      req.token = token;
-      next();
-    } catch (err) {
-      res.status(500).json({ err});
+        if (!decodedToken) {
+            return res.json({ message: "Token verification failed, authorization denied" });
+        }
+
+        req.userId = decodedToken.id;
+        req.authToken = authToken;
+        next();
+    } catch (error) {
+        res.json({ error: error.message });
     }
-  };
-  
-  module.exports = auth;
+};
+
+module.exports = authMiddleware;

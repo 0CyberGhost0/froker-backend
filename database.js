@@ -3,7 +3,7 @@ require("dotenv").config();
 const mongoDbUrl = process.env.mongoDBURL;
 
 // asynchronous function to connect to the database
-const connectDb = async () => {
+const connectDB = async () => {
     mongoose.connect(mongoDbUrl).then(() => {
         // If the connection is successful, log a message
         console.log("Database Connected");
@@ -13,4 +13,4 @@ const connectDb = async () => {
     });
 }
 
-module.exports = connectDb;
+module.exports = connectDB;
